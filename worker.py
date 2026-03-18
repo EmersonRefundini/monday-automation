@@ -118,7 +118,7 @@ def processar_item(item_id):
             print("✅ Finalizado:", item_id)
             return
 
-        except Exception:
+   except Exception:
     print("ERRO NO PROCESSAMENTO:")
     traceback.print_exc()
 
@@ -145,13 +145,16 @@ def worker():
             print("ERRO NO PROCESSAMENTO:")
             traceback.print_exc()
 
-            # 🔥 ADICIONA ISSO AQUI
+            try:
+                recriar_page()
+            except:
+                print("Erro ao recriar página")
+
             try:
                 page.screenshot(path="/app/erro_online.png", full_page=True)
                 print("📸 Screenshot salva em /app/erro_online.png")
             except:
                 print("Erro ao tirar screenshot")
-
         finally:
             fila.task_done()
 
