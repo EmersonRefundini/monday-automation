@@ -44,11 +44,6 @@ def iniciar_browser():
     )
 
     page = context.new_page()
-    page.goto(
-        f"https://brutale.monday.com/boards/{BOARD_ID}",
-        wait_until="domcontentloaded",
-        timeout=30000
-    )
     print("🚀 Robô pronto.")
 
 
@@ -69,31 +64,31 @@ def criar_nota(titulo, corpo):
     global page
 
     botao_novo = page.get_by_text("Novo", exact=True).last
-    botao_novo.wait_for(timeout=15000)
-    botao_novo.click(timeout=15000)
+    botao_novo.wait_for(timeout=6000)
+    botao_novo.click(timeout=6000)
 
     opcao_nota = page.get_by_text("Adicionar uma nota", exact=True)
-    opcao_nota.wait_for(timeout=10000)
-    page.wait_for_timeout(500)
+    opcao_nota.wait_for(timeout=4000)
+    page.wait_for_timeout(200)
     opcao_nota.click(force=True)
 
     icone_editar = page.locator(".icon.icon-dapulse-edit").first
-    icone_editar.wait_for(timeout=10000)
+    icone_editar.wait_for(timeout=4000)
     icone_editar.click(force=True)
 
     titulo_box = page.locator("#collaboration_area").get_by_role("textbox")
-    titulo_box.wait_for(timeout=10000)
+    titulo_box.wait_for(timeout=4000)
     titulo_box.click()
     titulo_box.press("ControlOrMeta+A")
     titulo_box.fill(titulo)
 
     editor = page.get_by_label("Editor de rich text")
-    editor.wait_for(timeout=10000)
+    editor.wait_for(timeout=4000)
     editor.click()
     editor.fill(corpo)
 
     salvar = page.get_by_role("button", name="Salvar")
-    salvar.wait_for(timeout=10000)
+    salvar.wait_for(timeout=4000)
     salvar.click(force=True)
 
 
@@ -103,25 +98,25 @@ def processar_item(item_id):
     url = f"https://brutale.monday.com/boards/{BOARD_ID}/pulses/{item_id}"
     print("Processando:", item_id)
 
-    for tentativa in range(3):
+    for tentativa in range(2):
         try:
-            page.goto(url, wait_until="domcontentloaded", timeout=30000)
+            page.goto(url, wait_until="domcontentloaded", timeout=15000)
 
             botao_info = page.get_by_role("button", name=re.compile("Informações"))
-            botao_info.wait_for(timeout=15000)
+            botao_info.wait_for(timeout=6000)
 
             try:
-                botao_info.click(timeout=5000)
+                botao_info.click(timeout=3000)
             except:
                 print(f"Tentativa {tentativa + 1}: clique normal falhou, tentando force=True")
-                botao_info.click(timeout=5000, force=True)
+                botao_info.click(timeout=3000, force=True)
 
-            page.wait_for_timeout(1200)
+            page.wait_for_timeout(400)
 
-            page.get_by_text("Novo", exact=True).last.wait_for(timeout=15000)
+            page.get_by_text("Novo", exact=True).last.wait_for(timeout=6000)
 
             criar_nota("PASTA DA PROGRAMAÇÃO", "X")
-            page.wait_for_timeout(500)
+            page.wait_for_timeout(200)
             criar_nota("HURON", "MAQ:\n\nPEDIDO:\n\nCRÍTICO:\n\nCC:")
 
             print("✅ Finalizado:", item_id)
@@ -135,10 +130,10 @@ def processar_item(item_id):
                 print("💥 Página crashou, recriando...")
                 recriar_page()
 
-            if tentativa == 2:
+            if tentativa == 1:
                 raise
 
-            page.wait_for_timeout(1500)
+            page.wait_for_timeout(500)
 
 
 def worker():
