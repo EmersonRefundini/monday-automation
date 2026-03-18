@@ -112,25 +112,34 @@ def processar_item(item_id):
             except:
                 print("Informações não apareceu direto. Tentando abrir pela linha do board...")
 
-                # 2) fallback: volta pro board e abre o item pela linha
+                # 2) fallback: abre o board
                 page.goto(url_board, wait_until="domcontentloaded", timeout=20000)
 
+                # 3) acha a linha do item
                 linha_item = page.get_by_test_id(f"item-{item_id}")
                 linha_item.wait_for(timeout=15000)
 
-                # botão que abre o painel lateral do item
-                linha_item.get_by_role("button").click(timeout=10000)
+                # 4) clica no botão correto (Selecionar elemento)
+                botao_abrir_item = linha_item.get_by_role(
+                    "button",
+                    name=re.compile(r"^Selecionar elemento:")
+                )
+                botao_abrir_item.wait_for(timeout=10000)
+                botao_abrir_item.click(timeout=10000)
 
+                # 5) agora espera o botão Informações aparecer
                 botao_info.wait_for(timeout=10000)
 
+            # 6) clica em Informações
             try:
                 botao_info.click(timeout=5000)
             except:
-                print(f"Tentativa {tentativa + 1}: clique normal em Informações falhou, tentando force=True")
+                print(f"Tentativa {tentativa + 1}: clique normal falhou, tentando force=True")
                 botao_info.click(timeout=5000, force=True)
 
             page.wait_for_timeout(800)
 
+            # 7) cria as notas
             page.get_by_text("Novo", exact=True).last.wait_for(timeout=10000)
 
             criar_nota("PASTA DA PROGRAMAÇÃO", "X")
