@@ -2,10 +2,12 @@ from playwright.sync_api import sync_playwright
 import queue
 import threading
 import os
+import traceback
+import re
 
 fila = queue.Queue()
 
-BASE_DIR = r"C:\Users\CAM-Brutale\Desktop\busca_desenhos"
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 ESTADO = os.path.join(BASE_DIR, "estado.json")
 BOARD_ID = "18404237753"
 
@@ -17,6 +19,14 @@ page = None
 
 def iniciar_browser():
     global play, browser, context, page
+
+    print("WORKER INICIOU")
+    print("BASE_DIR =", BASE_DIR)
+    print("ESTADO =", ESTADO)
+    print("estado.json existe?", os.path.exists(ESTADO))
+
+    if not os.path.exists(ESTADO):
+        raise FileNotFoundError(f"estado.json não encontrado em {ESTADO}")
 
     play = sync_playwright().start()
     browser = play.chromium.launch(headless=True)
@@ -32,6 +42,7 @@ def iniciar_browser():
     page = context.new_page()
     page.goto(f"https://brutale.monday.com/boards/{BOARD_ID}", wait_until="domcontentloaded", timeout=30000)
     print("🚀 Robô pronto.")
+
 
 def criar_nota(titulo, corpo):
     botao_novo = page.get_by_text("Novo")
@@ -61,11 +72,9 @@ def criar_nota(titulo, corpo):
     salvar.wait_for(timeout=10000)
     salvar.click(force=True)
 
-import re
 
 def processar_item(item_id):
     url = f"https://brutale.monday.com/boards/{BOARD_ID}/pulses/{item_id}"
-
     print("Processando:", item_id)
 
     page.goto(url, wait_until="domcontentloaded", timeout=30000)
@@ -78,26 +87,28 @@ def processar_item(item_id):
 
     criar_nota("PASTA DA PROGRAMAÇÃO", "X")
     page.wait_for_timeout(500)
-
     criar_nota("HURON", "MAQ:\n\nPEDIDO:\n\nCRÍTICO:\n\nCC:")
 
     print("✅ Finalizado:", item_id)
 
+
 def worker():
-    print("WORKER INICIOU")
-    iniciar_browser()
+    try:
+        iniciar_browser()
+    except Exception:
+        print("ERRO AO INICIAR O BROWSER:")
+        traceback.print_exc()
+        return
 
     while True:
         item_id = fila.get()
         try:
-            print("Processando item:", item_id)
             processar_item(item_id)
-            print("Notas criadas:", item_id)
         except Exception:
-            import traceback
-            print("ERRO NO WORKER:")
+            print("ERRO NO PROCESSAMENTO:")
             traceback.print_exc()
         finally:
             fila.task_done()
+
 
 threading.Thread(target=worker, daemon=True).start()
