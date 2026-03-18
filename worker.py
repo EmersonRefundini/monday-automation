@@ -95,28 +95,46 @@ def criar_nota(titulo, corpo):
 def processar_item(item_id):
     global page
 
-    url = f"https://brutale.monday.com/boards/{BOARD_ID}/pulses/{item_id}"
+    url_item = f"https://brutale.monday.com/boards/{BOARD_ID}/pulses/{item_id}"
+    url_board = f"https://brutale.monday.com/boards/{BOARD_ID}"
+
     print("Processando:", item_id)
 
     for tentativa in range(2):
         try:
-            page.goto(url, wait_until="domcontentloaded", timeout=15000)
+            # 1) tenta abrir direto no item
+            page.goto(url_item, wait_until="domcontentloaded", timeout=20000)
 
             botao_info = page.get_by_role("button", name=re.compile("Informações"))
-            botao_info.wait_for(timeout=6000)
 
             try:
-                botao_info.click(timeout=3000)
+                botao_info.wait_for(timeout=4000)
             except:
-                print(f"Tentativa {tentativa + 1}: clique normal falhou, tentando force=True")
-                botao_info.click(timeout=3000, force=True)
+                print("Informações não apareceu direto. Tentando abrir pela linha do board...")
 
-            page.wait_for_timeout(400)
+                # 2) fallback: volta pro board e abre o item pela linha
+                page.goto(url_board, wait_until="domcontentloaded", timeout=20000)
 
-            page.get_by_text("Novo", exact=True).last.wait_for(timeout=6000)
+                linha_item = page.get_by_test_id(f"item-{item_id}")
+                linha_item.wait_for(timeout=15000)
+
+                # botão que abre o painel lateral do item
+                linha_item.get_by_role("button").click(timeout=10000)
+
+                botao_info.wait_for(timeout=10000)
+
+            try:
+                botao_info.click(timeout=5000)
+            except:
+                print(f"Tentativa {tentativa + 1}: clique normal em Informações falhou, tentando force=True")
+                botao_info.click(timeout=5000, force=True)
+
+            page.wait_for_timeout(800)
+
+            page.get_by_text("Novo", exact=True).last.wait_for(timeout=10000)
 
             criar_nota("PASTA DA PROGRAMAÇÃO", "X")
-            page.wait_for_timeout(200)
+            page.wait_for_timeout(300)
             criar_nota("HURON", "MAQ:\n\nPEDIDO:\n\nCRÍTICO:\n\nCC:")
 
             print("✅ Finalizado:", item_id)
@@ -133,8 +151,7 @@ def processar_item(item_id):
             if tentativa == 1:
                 raise
 
-            page.wait_for_timeout(500)
-
+            page.wait_for_timeout(1000)
 
 def worker():
     try:
