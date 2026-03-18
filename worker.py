@@ -83,18 +83,21 @@ def processar_item(item_id):
 
     print("✅ Finalizado:", item_id)
 
-
 def worker():
+    print("WORKER INICIOU")
     iniciar_browser()
 
     while True:
         item_id = fila.get()
         try:
+            print("Processando item:", item_id)
             processar_item(item_id)
-        except Exception as e:
-            print("Erro:", e)
+            print("Notas criadas:", item_id)
+        except Exception:
+            import traceback
+            print("ERRO NO WORKER:")
+            traceback.print_exc()
         finally:
             fila.task_done()
-
 
 threading.Thread(target=worker, daemon=True).start()
