@@ -45,11 +45,11 @@ def iniciar_browser():
 
 
 def criar_nota(titulo, corpo):
-    botao_novo = page.get_by_text("Novo")
+    botao_novo = page.get_by_role("button", name="Novo")
     botao_novo.wait_for(timeout=10000)
     botao_novo.click(timeout=10000)
 
-    opcao_nota = page.get_by_text("Adicionar uma nota")
+    opcao_nota = page.get_by_text("Adicionar uma nota", exact=True)
     opcao_nota.wait_for(timeout=10000)
     page.wait_for_timeout(500)
     opcao_nota.click(force=True)
