@@ -30,7 +30,11 @@ def iniciar_browser():
 
     play = sync_playwright().start()
     browser = play.chromium.launch(headless=True)
-    context = browser.new_context(storage_state=ESTADO)
+
+    context = browser.new_context(
+        storage_state=ESTADO,
+        viewport={"width": 1600, "height": 1200}
+    )
 
     context.route(
         "**/*",
@@ -43,6 +47,17 @@ def iniciar_browser():
     page.goto(f"https://brutale.monday.com/boards/{BOARD_ID}", wait_until="domcontentloaded", timeout=30000)
     print("🚀 Robô pronto.")
 
+def recriar_page():
+    global page
+
+    try:
+        if page:
+            page.close()
+    except:
+        pass
+
+    page = context.new_page()
+    print("🔄 Página recriada")
 
 def criar_nota(titulo, corpo):
     botao_novo = page.get_by_text("Novo", exact=True).last
@@ -74,6 +89,8 @@ def criar_nota(titulo, corpo):
 
 
 def processar_item(item_id):
+    global page
+
     url = f"https://brutale.monday.com/boards/{BOARD_ID}/pulses/{item_id}"
     print("Processando:", item_id)
 
@@ -96,17 +113,19 @@ def processar_item(item_id):
 
             criar_nota("PASTA DA PROGRAMAÇÃO", "X")
             page.wait_for_timeout(500)
-            criar_nota("HURON", "MAQ:\nPEDIDO:\nCRÍTICO:\nCC:")
+            criar_nota("HURON", "MAQ:\n\nPEDIDO:\n\nCRÍTICO:\n\nCC:")
 
             print("✅ Finalizado:", item_id)
             return
 
-        except Exception as e:
-            print(f"Tentativa {tentativa+1} falhou para item {item_id}: {e}")
-            if tentativa == 2:
-                raise
-            page.wait_for_timeout(2000)
-            page.reload(wait_until="domcontentloaded", timeout=30000)
+        except Exception:
+    print("ERRO NO PROCESSAMENTO:")
+    traceback.print_exc()
+
+    try:
+        recriar_page()
+    except:
+        print("Erro ao recriar página")
 
 def worker():
     try:
