@@ -7,14 +7,13 @@ app = Flask(__name__)
 def webhook():
     data = request.json
 
-    # 🔥 ISSO AQUI É O MAIS IMPORTANTE
     if "challenge" in data:
         return jsonify({"challenge": data["challenge"]})
 
-    # evento normal
     item_id = str(data["event"]["pulseId"])
     print("Novo item recebido:", item_id)
 
     worker.fila.put(item_id)
+    print("Enviado para fila:", item_id)
 
     return "OK", 200

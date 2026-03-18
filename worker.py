@@ -91,7 +91,6 @@ def processar_item(item_id):
 
     print("✅ Finalizado:", item_id)
 
-
 def worker():
     try:
         iniciar_browser()
@@ -102,8 +101,10 @@ def worker():
 
     while True:
         item_id = fila.get()
+        print("Item entrou na fila:", item_id)
         try:
             processar_item(item_id)
+            print("✅ Finalizado:", item_id)
         except Exception:
             print("ERRO NO PROCESSAMENTO:")
             traceback.print_exc()
