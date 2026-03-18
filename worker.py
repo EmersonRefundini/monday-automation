@@ -45,9 +45,9 @@ def iniciar_browser():
 
 
 def criar_nota(titulo, corpo):
-    botao_novo = page.get_by_role("button", name="Novo")
-    botao_novo.wait_for(timeout=10000)
-    botao_novo.click(timeout=10000)
+    botao_novo = page.get_by_text("Novo", exact=True).last
+    botao_novo.wait_for(timeout=15000)
+    botao_novo.click(timeout=15000)
 
     opcao_nota = page.get_by_text("Adicionar uma nota", exact=True)
     opcao_nota.wait_for(timeout=10000)
@@ -83,7 +83,10 @@ def processar_item(item_id):
     botao_info.wait_for(timeout=15000)
     botao_info.click(timeout=15000)
 
-    page.wait_for_timeout(800)
+    page.wait_for_timeout(1500)
+
+    # espera o bloco da aba Informações existir
+    page.get_by_text("Novo", exact=True).last.wait_for(timeout=15000)
 
     criar_nota("PASTA DA PROGRAMAÇÃO", "X")
     page.wait_for_timeout(500)
@@ -108,6 +111,14 @@ def worker():
         except Exception:
             print("ERRO NO PROCESSAMENTO:")
             traceback.print_exc()
+
+            # 🔥 ADICIONA ISSO AQUI
+            try:
+                page.screenshot(path="/app/erro_online.png", full_page=True)
+                print("📸 Screenshot salva em /app/erro_online.png")
+            except:
+                print("Erro ao tirar screenshot")
+
         finally:
             fila.task_done()
 
