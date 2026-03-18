@@ -4,6 +4,7 @@ import threading
 import os
 import traceback
 import re
+import time
 
 fila = queue.Queue()
 
@@ -13,12 +14,10 @@ BOARD_ID = "18404237753"
 
 play = None
 browser = None
-context = None
-page = None
 
 
 def iniciar_browser():
-    global play, browser, context, page
+    global play, browser
 
     print("WORKER INICIOU")
     print("BASE_DIR =", BASE_DIR)
@@ -31,6 +30,10 @@ def iniciar_browser():
     play = sync_playwright().start()
     browser = play.chromium.launch(headless=True)
 
+    print("🚀 Browser base pronto.")
+
+
+def criar_contexto():
     context = browser.new_context(
         storage_state=ESTADO,
         viewport={"width": 1600, "height": 1200}
@@ -43,124 +46,123 @@ def iniciar_browser():
         else route.continue_()
     )
 
-    page = context.new_page()
-    print("🚀 Robô pronto.")
+    return context
 
 
-def recriar_page():
-    global page
-
-    try:
-        if page:
-            page.close()
-    except:
-        pass
-
-    page = context.new_page()
-    print("🔄 Página recriada")
-
-
-def criar_nota(titulo, corpo):
-    global page
-
+def criar_nota(page, titulo, corpo):
     botao_novo = page.get_by_text("Novo", exact=True).last
-    botao_novo.wait_for(timeout=6000)
-    botao_novo.click(timeout=6000)
+    botao_novo.wait_for(timeout=15000)
+    botao_novo.click(timeout=15000)
 
     opcao_nota = page.get_by_text("Adicionar uma nota", exact=True)
-    opcao_nota.wait_for(timeout=4000)
-    page.wait_for_timeout(200)
+    opcao_nota.wait_for(timeout=10000)
+    page.wait_for_timeout(300)
     opcao_nota.click(force=True)
 
     icone_editar = page.locator(".icon.icon-dapulse-edit").first
-    icone_editar.wait_for(timeout=4000)
+    icone_editar.wait_for(timeout=10000)
     icone_editar.click(force=True)
 
     titulo_box = page.locator("#collaboration_area").get_by_role("textbox")
-    titulo_box.wait_for(timeout=4000)
+    titulo_box.wait_for(timeout=10000)
     titulo_box.click()
     titulo_box.press("ControlOrMeta+A")
     titulo_box.fill(titulo)
 
     editor = page.get_by_label("Editor de rich text")
-    editor.wait_for(timeout=4000)
+    editor.wait_for(timeout=10000)
     editor.click()
     editor.fill(corpo)
 
     salvar = page.get_by_role("button", name="Salvar")
-    salvar.wait_for(timeout=4000)
+    salvar.wait_for(timeout=10000)
     salvar.click(force=True)
 
 
-def processar_item(item_id):
-    global page
-
-    url_item = f"https://brutale.monday.com/boards/{BOARD_ID}/pulses/{item_id}"
+def abrir_item_via_board(page, item_id):
     url_board = f"https://brutale.monday.com/boards/{BOARD_ID}"
+    page.goto(url_board, wait_until="domcontentloaded", timeout=30000)
 
+    linha_item = page.get_by_test_id(f"item-{item_id}")
+    linha_item.wait_for(timeout=20000)
+
+    botao_abrir_item = linha_item.get_by_role(
+        "button",
+        name=re.compile(r"^Selecionar elemento:")
+    )
+    botao_abrir_item.wait_for(timeout=10000)
+    botao_abrir_item.click(timeout=10000)
+
+
+def processar_item(item_id):
+    url_item = f"https://brutale.monday.com/boards/{BOARD_ID}/pulses/{item_id}"
     print("Processando:", item_id)
 
-    for tentativa in range(2):
+    # pequeno atraso para itens vindos de formulário terminarem de aparecer/renderizar
+    time.sleep(3)
+
+    context = None
+    page = None
+
+    try:
+        context = criar_contexto()
+        page = context.new_page()
+
+        # tentativa 1: abrir direto pela URL do item
         try:
-            # 1) tenta abrir direto no item
-            page.goto(url_item, wait_until="domcontentloaded", timeout=20000)
+            page.goto(url_item, wait_until="domcontentloaded", timeout=25000)
 
             botao_info = page.get_by_role("button", name=re.compile("Informações"))
+            botao_info.wait_for(timeout=5000)
 
-            try:
-                botao_info.wait_for(timeout=4000)
-            except:
-                print("Informações não apareceu direto. Tentando abrir pela linha do board...")
+        except Exception:
+            print("Informações não apareceu direto. Tentando abrir pela linha do board...")
+            abrir_item_via_board(page, item_id)
+            botao_info = page.get_by_role("button", name=re.compile("Informações"))
+            botao_info.wait_for(timeout=10000)
 
-                # 2) fallback: abre o board
-                page.goto(url_board, wait_until="domcontentloaded", timeout=20000)
+        try:
+            botao_info.click(timeout=5000)
+        except Exception:
+            print("Clique normal em Informações falhou, tentando force=True")
+            botao_info.click(timeout=5000, force=True)
 
-                # 3) acha a linha do item
-                linha_item = page.get_by_test_id(f"item-{item_id}")
-                linha_item.wait_for(timeout=15000)
+        page.wait_for_timeout(800)
 
-                # 4) clica no botão correto (Selecionar elemento)
-                botao_abrir_item = linha_item.get_by_role(
-                    "button",
-                    name=re.compile(r"^Selecionar elemento:")
-                )
-                botao_abrir_item.wait_for(timeout=10000)
-                botao_abrir_item.click(timeout=10000)
+        page.get_by_text("Novo", exact=True).last.wait_for(timeout=10000)
 
-                # 5) agora espera o botão Informações aparecer
-                botao_info.wait_for(timeout=10000)
+        criar_nota(page, "PASTA DA PROGRAMAÇÃO", "X")
+        page.wait_for_timeout(300)
+        criar_nota(page, "HURON", "MAQ:\n\nPEDIDO:\n\nCRÍTICO:\n\nCC:")
 
-            # 6) clica em Informações
-            try:
-                botao_info.click(timeout=5000)
-            except:
-                print(f"Tentativa {tentativa + 1}: clique normal falhou, tentando force=True")
-                botao_info.click(timeout=5000, force=True)
+        print("✅ Finalizado:", item_id)
 
-            page.wait_for_timeout(800)
+    except Exception:
+        print("ERRO NO PROCESSAMENTO:")
+        traceback.print_exc()
 
-            # 7) cria as notas
-            page.get_by_text("Novo", exact=True).last.wait_for(timeout=10000)
+        try:
+            if page:
+                page.screenshot(path="/app/erro_online.png", full_page=True)
+                print("📸 Screenshot salva em /app/erro_online.png")
+        except Exception:
+            print("Erro ao tirar screenshot")
 
-            criar_nota("PASTA DA PROGRAMAÇÃO", "X")
-            page.wait_for_timeout(300)
-            criar_nota("HURON", "MAQ:\n\nPEDIDO:\n\nCRÍTICO:\n\nCC:")
+        raise
 
-            print("✅ Finalizado:", item_id)
-            return
+    finally:
+        try:
+            if page:
+                page.close()
+        except Exception:
+            pass
 
-        except Exception as e:
-            print(f"Tentativa {tentativa + 1} falhou para item {item_id}: {e}")
+        try:
+            if context:
+                context.close()
+        except Exception:
+            pass
 
-            msg = str(e).lower()
-            if "page crashed" in msg or "target page, context or browser has been closed" in msg:
-                print("💥 Página crashou, recriando...")
-                recriar_page()
-
-            if tentativa == 1:
-                raise
-
-            page.wait_for_timeout(1000)
 
 def worker():
     try:
@@ -176,23 +178,8 @@ def worker():
 
         try:
             processar_item(item_id)
-            print("✅ Finalizado:", item_id)
-
         except Exception:
-            print("ERRO NO PROCESSAMENTO:")
-            traceback.print_exc()
-
-            try:
-                recriar_page()
-            except:
-                print("Erro ao recriar página")
-
-            try:
-                page.screenshot(path="/app/erro_online.png", full_page=True)
-                print("📸 Screenshot salva em /app/erro_online.png")
-            except:
-                print("Erro ao tirar screenshot")
-
+            print("Falha final no item:", item_id)
         finally:
             fila.task_done()
 
