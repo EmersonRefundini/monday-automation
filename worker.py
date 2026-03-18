@@ -44,8 +44,13 @@ def iniciar_browser():
     )
 
     page = context.new_page()
-    page.goto(f"https://brutale.monday.com/boards/{BOARD_ID}", wait_until="domcontentloaded", timeout=30000)
+    page.goto(
+        f"https://brutale.monday.com/boards/{BOARD_ID}",
+        wait_until="domcontentloaded",
+        timeout=30000
+    )
     print("🚀 Robô pronto.")
+
 
 def recriar_page():
     global page
@@ -59,7 +64,10 @@ def recriar_page():
     page = context.new_page()
     print("🔄 Página recriada")
 
+
 def criar_nota(titulo, corpo):
+    global page
+
     botao_novo = page.get_by_text("Novo", exact=True).last
     botao_novo.wait_for(timeout=15000)
     botao_novo.click(timeout=15000)
@@ -69,8 +77,9 @@ def criar_nota(titulo, corpo):
     page.wait_for_timeout(500)
     opcao_nota.click(force=True)
 
-    page.locator(".icon.icon-dapulse-edit").first.wait_for(timeout=10000)
-    page.locator(".icon.icon-dapulse-edit").first.click(force=True)
+    icone_editar = page.locator(".icon.icon-dapulse-edit").first
+    icone_editar.wait_for(timeout=10000)
+    icone_editar.click(force=True)
 
     titulo_box = page.locator("#collaboration_area").get_by_role("textbox")
     titulo_box.wait_for(timeout=10000)
@@ -104,7 +113,7 @@ def processar_item(item_id):
             try:
                 botao_info.click(timeout=5000)
             except:
-                print(f"Tentativa {tentativa+1}: clique normal falhou, tentando force=True")
+                print(f"Tentativa {tentativa + 1}: clique normal falhou, tentando force=True")
                 botao_info.click(timeout=5000, force=True)
 
             page.wait_for_timeout(1200)
@@ -118,14 +127,19 @@ def processar_item(item_id):
             print("✅ Finalizado:", item_id)
             return
 
-   except Exception:
-    print("ERRO NO PROCESSAMENTO:")
-    traceback.print_exc()
+        except Exception as e:
+            print(f"Tentativa {tentativa + 1} falhou para item {item_id}: {e}")
 
-    try:
-        recriar_page()
-    except:
-        print("Erro ao recriar página")
+            msg = str(e).lower()
+            if "page crashed" in msg or "target page, context or browser has been closed" in msg:
+                print("💥 Página crashou, recriando...")
+                recriar_page()
+
+            if tentativa == 2:
+                raise
+
+            page.wait_for_timeout(1500)
+
 
 def worker():
     try:
@@ -138,9 +152,11 @@ def worker():
     while True:
         item_id = fila.get()
         print("Item entrou na fila:", item_id)
+
         try:
             processar_item(item_id)
             print("✅ Finalizado:", item_id)
+
         except Exception:
             print("ERRO NO PROCESSAMENTO:")
             traceback.print_exc()
@@ -155,6 +171,7 @@ def worker():
                 print("📸 Screenshot salva em /app/erro_online.png")
             except:
                 print("Erro ao tirar screenshot")
+
         finally:
             fila.task_done()
 
