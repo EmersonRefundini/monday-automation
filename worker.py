@@ -77,22 +77,36 @@ def processar_item(item_id):
     url = f"https://brutale.monday.com/boards/{BOARD_ID}/pulses/{item_id}"
     print("Processando:", item_id)
 
-    page.goto(url, wait_until="domcontentloaded", timeout=30000)
+    for tentativa in range(3):
+        try:
+            page.goto(url, wait_until="domcontentloaded", timeout=30000)
 
-    botao_info = page.get_by_role("button", name=re.compile("Informações"))
-    botao_info.wait_for(timeout=15000)
-    botao_info.click(timeout=15000)
+            botao_info = page.get_by_role("button", name=re.compile("Informações"))
+            botao_info.wait_for(timeout=15000)
 
-    page.wait_for_timeout(1500)
+            try:
+                botao_info.click(timeout=5000)
+            except:
+                print(f"Tentativa {tentativa+1}: clique normal falhou, tentando force=True")
+                botao_info.click(timeout=5000, force=True)
 
-    # espera o bloco da aba Informações existir
-    page.get_by_text("Novo", exact=True).last.wait_for(timeout=15000)
+            page.wait_for_timeout(1200)
 
-    criar_nota("PASTA DA PROGRAMAÇÃO", "X")
-    page.wait_for_timeout(500)
-    criar_nota("HURON", "MAQ:\n\nPEDIDO:\n\nCRÍTICO:\n\nCC:")
+            page.get_by_text("Novo", exact=True).last.wait_for(timeout=15000)
 
-    print("✅ Finalizado:", item_id)
+            criar_nota("PASTA DA PROGRAMAÇÃO", "X")
+            page.wait_for_timeout(500)
+            criar_nota("HURON", "MAQ:\nPEDIDO:\nCRÍTICO:\nCC:")
+
+            print("✅ Finalizado:", item_id)
+            return
+
+        except Exception as e:
+            print(f"Tentativa {tentativa+1} falhou para item {item_id}: {e}")
+            if tentativa == 2:
+                raise
+            page.wait_for_timeout(2000)
+            page.reload(wait_until="domcontentloaded", timeout=30000)
 
 def worker():
     try:
